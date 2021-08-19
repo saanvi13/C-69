@@ -1,68 +1,230 @@
-# color-convert
+Node.js - jsonfile
+================
 
-[![Build Status](https://travis-ci.org/Qix-/color-convert.svg?branch=master)](https://travis-ci.org/Qix-/color-convert)
+Easily read/write JSON files in Node.js. _Note: this module cannot be used in the browser._
 
-Color-convert is a color conversion library for JavaScript and node.
-It converts all ways between `rgb`, `hsl`, `hsv`, `hwb`, `cmyk`, `ansi`, `ansi16`, `hex` strings, and CSS `keyword`s (will round to closest):
+[![npm Package](https://img.shields.io/npm/v/jsonfile.svg?style=flat-square)](https://www.npmjs.org/package/jsonfile)
+[![build status](https://secure.travis-ci.org/jprichardson/node-jsonfile.svg)](http://travis-ci.org/jprichardson/node-jsonfile)
+[![windows Build status](https://img.shields.io/appveyor/ci/jprichardson/node-jsonfile/master.svg?label=windows%20build)](https://ci.appveyor.com/project/jprichardson/node-jsonfile/branch/master)
 
-```js
-var convert = require('color-convert');
+<a href="https://github.com/feross/standard"><img src="https://cdn.rawgit.com/feross/standard/master/sticker.svg" alt="Standard JavaScript" width="100"></a>
 
-convert.rgb.hsl(140, 200, 100);             // [96, 48, 59]
-convert.keyword.rgb('blue');                // [0, 0, 255]
+Why?
+----
 
-var rgbChannels = convert.rgb.channels;     // 3
-var cmykChannels = convert.cmyk.channels;   // 4
-var ansiChannels = convert.ansi16.channels; // 1
-```
+Writing `JSON.stringify()` and then `fs.writeFile()` and `JSON.parse()` with `fs.readFile()` enclosed in `try/catch` blocks became annoying.
 
-# Install
 
-```console
-$ npm install color-convert
-```
 
-# API
+Installation
+------------
 
-Simply get the property of the _from_ and _to_ conversion that you're looking for.
+    npm install --save jsonfile
 
-All functions have a rounded and unrounded variant. By default, return values are rounded. To get the unrounded (raw) results, simply tack on `.raw` to the function.
 
-All 'from' functions have a hidden property called `.channels` that indicates the number of channels the function expects (not including alpha).
 
-```js
-var convert = require('color-convert');
+API
+---
 
-// Hex to LAB
-convert.hex.lab('DEADBF');         // [ 76, 21, -2 ]
-convert.hex.lab.raw('DEADBF');     // [ 75.56213190997677, 20.653827952644754, -2.290532499330533 ]
+* [`readFile(filename, [options], callback)`](#readfilefilename-options-callback)
+* [`readFileSync(filename, [options])`](#readfilesyncfilename-options)
+* [`writeFile(filename, obj, [options], callback)`](#writefilefilename-obj-options-callback)
+* [`writeFileSync(filename, obj, [options])`](#writefilesyncfilename-obj-options)
 
-// RGB to CMYK
-convert.rgb.cmyk(167, 255, 4);     // [ 35, 0, 98, 0 ]
-convert.rgb.cmyk.raw(167, 255, 4); // [ 34.509803921568626, 0, 98.43137254901961, 0 ]
-```
+----
 
-### Arrays
-All functions that accept multiple arguments also support passing an array.
+### readFile(filename, [options], callback)
 
-Note that this does **not** apply to functions that convert from a color that only requires one value (e.g. `keyword`, `ansi256`, `hex`, etc.)
+`options` (`object`, default `undefined`): Pass in any [`fs.readFile`](https://nodejs.org/api/fs.html#fs_fs_readfile_path_options_callback) options or set `reviver` for a [JSON reviver](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse).
+  - `throws` (`boolean`, default: `true`). If `JSON.parse` throws an error, pass this error to the callback.
+  If `false`, returns `null` for the object.
+
 
 ```js
-var convert = require('color-convert');
-
-convert.rgb.hex(123, 45, 67);      // '7B2D43'
-convert.rgb.hex([123, 45, 67]);    // '7B2D43'
+const jsonfile = require('jsonfile')
+const file = '/tmp/data.json'
+jsonfile.readFile(file, function (err, obj) {
+  if (err) console.error(err)
+  console.dir(obj)
+})
 ```
 
-## Routing
+You can also use this method with promises. The `readFile` method will return a promise if you do not pass a callback function.
 
-Conversions that don't have an _explicitly_ defined conversion (in [conversions.js](conversions.js)), but can be converted by means of sub-conversions (e.g. XYZ -> **RGB** -> CMYK), are automatically routed together. This allows just about any color model supported by `color-convert` to be converted to any other model, so long as a sub-conversion path exists. This is also true for conversions requiring more than one step in between (e.g. LCH -> **LAB** -> **XYZ** -> **RGB** -> Hex).
+```js
+const jsonfile = require('jsonfile')
+const file = '/tmp/data.json'
+jsonfile.readFile(file)
+  .then(obj => console.dir(obj))
+  .catch(error => console.error(error))
+```
 
-Keep in mind that extensive conversions _may_ result in a loss of precision, and exist only to be complete. For a list of "direct" (single-step) conversions, see [conversions.js](conversions.js).
+----
 
-# Contribute
+### readFileSync(filename, [options])
 
-If there is a new model you would like to support, or want to add a direct conversion between two existing models, please send us a pull request.
+`options` (`object`, default `undefined`): Pass in any [`fs.readFileSync`](https://nodejs.org/api/fs.html#fs_fs_readfilesync_path_options) options or set `reviver` for a [JSON reviver](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse).
+- `throws` (`boolean`, default: `true`). If an error is encountered reading or parsing the file, throw the error. If `false`, returns `null` for the object.
 
-# License
-Copyright &copy; 2011-2016, Heather Arthur and Josh Junon. Licensed under the [MIT License](LICENSE).
+```js
+const jsonfile = require('jsonfile')
+const file = '/tmp/data.json'
+
+console.dir(jsonfile.readFileSync(file))
+```
+
+----
+
+### writeFile(filename, obj, [options], callback)
+
+`options`: Pass in any [`fs.writeFile`](https://nodejs.org/api/fs.html#fs_fs_writefile_file_data_options_callback) options or set `replacer` for a [JSON replacer](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify). Can also pass in `spaces`, or override `EOL` string or set `finalEOL` flag as `false` to not save the file with `EOL` at the end.
+
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/data.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFile(file, obj, function (err) {
+  if (err) console.error(err)
+})
+```
+Or use with promises as follows:
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/data.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFile(file, obj)
+  .then(res => {
+    console.log('Write complete')
+  })
+  .catch(error => console.error(error))
+```
+
+
+**formatting with spaces:**
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/data.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFile(file, obj, { spaces: 2 }, function (err) {
+  if (err) console.error(err)
+})
+```
+
+**overriding EOL:**
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/data.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFile(file, obj, { spaces: 2, EOL: '\r\n' }, function (err) {
+  if (err) console.error(err)
+})
+```
+
+
+**disabling the EOL at the end of file:**
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/data.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFile(file, obj, { spaces: 2, finalEOL: false }, function (err) {
+  if (err) console.log(err)
+})
+```
+
+**appending to an existing JSON file:**
+
+You can use `fs.writeFile` option `{ flag: 'a' }` to achieve this.
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/mayAlreadyExistedData.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFile(file, obj, { flag: 'a' }, function (err) {
+  if (err) console.error(err)
+})
+```
+
+----
+
+### writeFileSync(filename, obj, [options])
+
+`options`: Pass in any [`fs.writeFileSync`](https://nodejs.org/api/fs.html#fs_fs_writefilesync_file_data_options) options or set `replacer` for a [JSON replacer](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify). Can also pass in `spaces`, or override `EOL` string or set `finalEOL` flag as `false` to not save the file with `EOL` at the end.
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/data.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFileSync(file, obj)
+```
+
+**formatting with spaces:**
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/data.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFileSync(file, obj, { spaces: 2 })
+```
+
+**overriding EOL:**
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/data.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFileSync(file, obj, { spaces: 2, EOL: '\r\n' })
+```
+
+**disabling the EOL at the end of file:**
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/data.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFileSync(file, obj, { spaces: 2, finalEOL: false })
+```
+
+**appending to an existing JSON file:**
+
+You can use `fs.writeFileSync` option `{ flag: 'a' }` to achieve this.
+
+```js
+const jsonfile = require('jsonfile')
+
+const file = '/tmp/mayAlreadyExistedData.json'
+const obj = { name: 'JP' }
+
+jsonfile.writeFileSync(file, obj, { flag: 'a' })
+```
+
+License
+-------
+
+(MIT License)
+
+Copyright 2012-2016, JP Richardson  <jprichardson@gmail.com>

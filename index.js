@@ -1,78 +1,88 @@
-var conversions = require('./conversions');
-var route = require('./route');
+let _fs
+try {
+  _fs = require('graceful-fs')
+} catch (_) {
+  _fs = require('fs')
+}
+const universalify = require('universalify')
+const { stringify, stripBom } = require('./utils')
 
-var convert = {};
+async function _readFile (file, options = {}) {
+  if (typeof options === 'string') {
+    options = { encoding: options }
+  }
 
-var models = Object.keys(conversions);
+  const fs = options.fs || _fs
 
-function wrapRaw(fn) {
-	var wrappedFn = function (args) {
-		if (args === undefined || args === null) {
-			return args;
-		}
+  const shouldThrow = 'throws' in options ? options.throws : true
 
-		if (arguments.length > 1) {
-			args = Array.prototype.slice.call(arguments);
-		}
+  let data = await universalify.fromCallback(fs.readFile)(file, options)
 
-		return fn(args);
-	};
+  data = stripBom(data)
 
-	// preserve .conversion property if there is one
-	if ('conversion' in fn) {
-		wrappedFn.conversion = fn.conversion;
-	}
+  let obj
+  try {
+    obj = JSON.parse(data, options ? options.reviver : null)
+  } catch (err) {
+    if (shouldThrow) {
+      err.message = `${file}: ${err.message}`
+      throw err
+    } else {
+      return null
+    }
+  }
 
-	return wrappedFn;
+  return obj
 }
 
-function wrapRounded(fn) {
-	var wrappedFn = function (args) {
-		if (args === undefined || args === null) {
-			return args;
-		}
+const readFile = universalify.fromPromise(_readFile)
 
-		if (arguments.length > 1) {
-			args = Array.prototype.slice.call(arguments);
-		}
+function readFileSync (file, options = {}) {
+  if (typeof options === 'string') {
+    options = { encoding: options }
+  }
 
-		var result = fn(args);
+  const fs = options.fs || _fs
 
-		// we're assuming the result is an array here.
-		// see notice in conversions.js; don't use box types
-		// in conversion functions.
-		if (typeof result === 'object') {
-			for (var len = result.length, i = 0; i < len; i++) {
-				result[i] = Math.round(result[i]);
-			}
-		}
+  const shouldThrow = 'throws' in options ? options.throws : true
 
-		return result;
-	};
-
-	// preserve .conversion property if there is one
-	if ('conversion' in fn) {
-		wrappedFn.conversion = fn.conversion;
-	}
-
-	return wrappedFn;
+  try {
+    let content = fs.readFileSync(file, options)
+    content = stripBom(content)
+    return JSON.parse(content, options.reviver)
+  } catch (err) {
+    if (shouldThrow) {
+      err.message = `${file}: ${err.message}`
+      throw err
+    } else {
+      return null
+    }
+  }
 }
 
-models.forEach(function (fromModel) {
-	convert[fromModel] = {};
+async function _writeFile (file, obj, options = {}) {
+  const fs = options.fs || _fs
 
-	Object.defineProperty(convert[fromModel], 'channels', {value: conversions[fromModel].channels});
-	Object.defineProperty(convert[fromModel], 'labels', {value: conversions[fromModel].labels});
+  const str = stringify(obj, options)
 
-	var routes = route(fromModel);
-	var routeModels = Object.keys(routes);
+  await universalify.fromCallback(fs.writeFile)(file, str, options)
+}
 
-	routeModels.forEach(function (toModel) {
-		var fn = routes[toModel];
+const writeFile = universalify.fromPromise(_writeFile)
 
-		convert[fromModel][toModel] = wrapRounded(fn);
-		convert[fromModel][toModel].raw = wrapRaw(fn);
-	});
-});
+function writeFileSync (file, obj, options = {}) {
+  const fs = options.fs || _fs
 
-module.exports = convert;
+  const str = stringify(obj, options)
+  // not sure if fs.writeFileSync returns anything, but just in case
+  return fs.writeFileSync(file, str, options)
+}
+
+const jsonfile = {
+  readFile,
+  readFileSync,
+  writeFile,
+  writeFileSync
+}
+
+module.exports = jsonfile
